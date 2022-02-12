@@ -11,7 +11,9 @@
     db))
 
 
-
-(defn sql 
+(defn sql
   [query]
-  (jdbc/execute! db [query]))
+  ;;(println query)
+  (jdbc/execute! db [query])
+  )
+
