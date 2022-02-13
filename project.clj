@@ -9,6 +9,7 @@
                  [ring/ring-core "1.9.5"]
                  [ring/ring-jetty-adapter "1.9.5"]
                  [compojure "1.6.2"]
-                 [org.clojure/data.json "2.4.0"]]
+                 [org.clojure/data.json "2.4.0"]
+                 [clojure.java-time "0.3.3"]]
   :repl-options {:init-ns flash.core}
   :main flash.core)
