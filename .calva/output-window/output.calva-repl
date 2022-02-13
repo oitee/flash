@@ -117,3 +117,19 @@ true
 clj꞉flash.handlers꞉> 
 false
 clj꞉flash.handlers꞉> 
+nil
+clj꞉flash.core꞉> 
+3
+clj꞉flash.handlers꞉> 
+2
+clj꞉flash.handlers꞉> 
+true
+clj꞉flash.handlers꞉> 
+#uuid "cce72ac6-80c8-4753-835f-c89f82d58213"
+clj꞉flash.handlers꞉> 
+"9931bec9-5012-4714-88a8-c42738b1a118"
+clj꞉flash.handlers꞉> 
+"62c338ef-5186-4194-9aed-5d64d739217d"
+clj꞉flash.handlers꞉> 
+true
+clj꞉flash.handlers꞉> 
