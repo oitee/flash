@@ -10,6 +10,7 @@
                  [ring/ring-jetty-adapter "1.9.5"]
                  [compojure "1.6.2"]
                  [org.clojure/data.json "2.4.0"]
-                 [clojure.java-time "0.3.3"]]
+                 [clj-time "0.15.2"]
+                 [buddy/buddy-core "1.7.1"]]
   :repl-options {:init-ns flash.core}
   :main flash.core)
