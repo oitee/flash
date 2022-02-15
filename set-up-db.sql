@@ -4,6 +4,7 @@ CREATE DATABASE chat;
 CREATE TABLE users (
     id UUID PRIMARY KEY,
     name TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE,
     updated_at TIMESTAMP WITH TIME ZONE
 );
@@ -34,7 +35,7 @@ CREATE TABLE messages (
 
 
 -- inserting new users
-INSERT INTO users (id, name, created_at, updated_at) VALUES ('33a6fa88-15c8-4a52-aaed-bf1ac1c40c12', 'john', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), ('702335e9-e0b0-4f9e-9f07-6ace7beaea6d', 'Alice', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP), ('178dcdf9-e6fa-4a05-899d-3f067702750e', 'Bob', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
+INSERT INTO users (id, name, password, created_at, updated_at) VALUES ('33a6fa88-15c8-4a52-aaed-bf1ac1c40c12', 'john', '12345', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);
 
 -- creating a new chatroom
 INSERT INTO chatroom (id, name, created_at, updated_at) VALUES ('2db98b67-88db-4902-971a-7128fa12e34b', 'Office Only', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP);

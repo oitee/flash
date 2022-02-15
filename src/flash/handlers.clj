@@ -1,14 +1,13 @@
 (ns flash.handlers
   (:gen-class)
   (:require [flash.db :as db]
-            [clojure.data.json :as json]
+            [flash.model :as model]
             [clj-time.core :as ctc]
             [clj-time.format :as ctf]
             [clj-time.coerce :as ctcc]
             [buddy.core.codecs :as codecs]
             [buddy.core.kdf :as kdf]
-            [buddy.core.nonce :as nonce])
-  (:import (java.text SimpleDateFormat)))
+            [buddy.core.nonce :as nonce]))
 
 
 
@@ -26,32 +25,18 @@
                             :salt salt
                             :alg :pbkdf2
                             :digest :sha256
-                            :iterations 1})]
-
-    {:status true
-     :salt salt
-     :salted-hash (-> (kdf/get-bytes pbkdf2 8)
-                      (codecs/bytes->hex))}))
+                            :iterations 100})]
+    (-> (kdf/get-bytes pbkdf2 8)
+        (codecs/bytes->hex))))
 
 
 (defn hash-password
   [password]
   (let [salt (nonce/random-bytes 8)
-        hex-salt (codecs/bytes->hex salt)]
-    (assoc (generate-hash password salt) :hex-salt hex-salt)))
+        hex-salt (codecs/bytes->hex salt)
+        hashed-password (generate-hash password salt)]
+    (str hashed-password ":" hex-salt)))
 
-
-
-
-;; (defn insert-user
-;;   [request]
-;;   (let [user-name (:id (:params request))
-;;         new-user-id (str (java.util.UUID/randomUUID))]
-;;     (if (empty? (db/sql (str "SELECT * from users WHERE name='" user-name "'")))
-;;      (do (db/sql (str "INSERT INTO users (id, name, created_at, updated_at) VALUES 
-;;                 ('" new-user-id "', '" user-name "', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"))
-;;          {:body {:status true, :message (str "User name inserted: " user-name), :user-id new-user-id}})
-;;      {:body {:status false, :message (str "Username already exists: " user-name)}})))
 
 (defn get-users
   [request]
@@ -91,13 +76,18 @@
 
 (defn sign-up
   [request]
-  (println "Here1")
   (let [username (get (:form-params request) "username")
         password (get (:form-params request) "password")]
     (if (and username password (> (count password) 6))
-      (let [password-hash (hash-password password)]
-        {:body {:salted-password (:salted-hash password-hash)
-                :salt (:hex-salt password-hash)}})
+      (let [hashed-password (hash-password password)
+            user-id (model/insert-user username hashed-password)]
+        (if user-id
+          {:body {:status "true"
+                  :user-id user-id}}
+          {:status 400
+           :body {:status "false"
+                  :message "Failed to enter the new user. Try with a different username"}})
+        )
       (let [message (if (<= (count password) 6)
                       "Password should have at least seven characters"
                       (str "Either username or password invalid:" username ", " password))]
@@ -110,24 +100,7 @@
 (format-timestamp "2022-03-09 09:00:11")
 (nil? (format-timestamp "2022-03-09 25:00:11"))
 
-(clojure.pprint/pprint (hash-password "peacock"))
 
 
-;; (let [salt (:salt (hash-password "peacock"))
-;;       hex-salt (codecs/bytes->hex salt)
-;;       bytes-salt (codecs/hex->bytes hex-salt)
-;;       hex-salt-again (codecs/bytes->hex bytes-salt)]
-;;   (= hex-salt hex-salt-again)
-;;   )
-
-;; (codecs/hex->bytes )
 
 
-(def pbkdf2 (kdf/engine {:key "my password"
-                         :salt (nonce/random-bytes 8)
-                         :alg :pbkdf2
-                         :digest :sha256
-                         :iterations 1}))
-
-(-> (kdf/get-bytes pbkdf2 8)
-    (codecs/bytes->hex))
