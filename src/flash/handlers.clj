@@ -10,8 +10,9 @@
 (defn format-timestamp
   [time]
   (try
-    (ctcc/to-long (ctf/parse (ctf/formatter "YYYY-MM-dd HH:mm:ss")
-                             time))
+    (int (/ (ctcc/to-long (ctf/parse (ctf/formatter "YYYY-MM-dd HH:mm:ss")
+                                     time))
+            1000))
     (catch Exception e nil)))
 
 
@@ -64,11 +65,14 @@
         user-id (:users/id (first (db/sql "SELECT id from users where name=?" user-name)))
         chatroom-id (:chatroom/id (first (db/sql "SELECT id FROM chatroom where name=?" chatroom)))
         from_ts (format-timestamp (get (:form-params request) "from_ts"))]
-    (if (and user-id chatroom-id chatroom-id from_ts)
+    (clojure.pprint/pprint (str (str "SELECT m.id as message_id, m.contents, c.name as chatroom, u.name as username, m.created_at "
+                                     "from (messages m JOIN users u ON m.user_id=u.id) JOIN chatroom c ON c.id=m.chat_room WHERE m.chat_room=? "
+                                     "AND m.created_at > to_timestamp(?) ORDER BY m.created_at ASC LIMIT 50 ") chatroom-id "  " from_ts))
+    (if (and user-id chatroom chatroom-id from_ts)
       {:body (db/sql
-              (str "WITH t AS (SELECT m.id as message_id, m.contents, c.name as chatroom, u.name as username, m.created_at "
+              (str "SELECT m.id as message_id, m.contents, c.name as chatroom, u.name as username, m.created_at "
                    "from (messages m JOIN users u ON m.user_id=u.id) JOIN chatroom c ON c.id=m.chat_room WHERE m.chat_room=? "
-                   "AND m.created_at < to_timestamp(?) ORDER BY m.created_at DESC LIMIT 50) SELECT * FROM t ORDER BY created_at ASC ")
+                   "AND m.created_at > to_timestamp(?) ORDER BY m.created_at ASC LIMIT 50 ")
               chatroom-id from_ts)}
       {:body {:status false, :message (str "Either username, chatroom or timestamp is invalid" user-name ", " chatroom ", " from_ts)}})))
 
