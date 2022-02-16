@@ -20,6 +20,7 @@
       (let [response (handler request)]
         response)
       (catch Exception e
+        (println e)
         {:status 500 :body {:status "false" :message "Something went wrong"}}))))
 
 (def app 

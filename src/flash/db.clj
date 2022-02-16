@@ -12,8 +12,8 @@
 
 
 (defn sql
-  [query]
+  [& query]
   ;;(println query)
-  (jdbc/execute! db [query])
+  (jdbc/execute! db query)
   )
 
