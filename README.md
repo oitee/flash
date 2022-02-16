@@ -30,3 +30,15 @@ Once the above implementation is executed, we will try to use web-sockets to imp
 
 
 
+
+
+## Sample curl commands
+
+```
+curl -X POST -d username=tom111 -d password="123456778" localhost:5000/signup
+curl localhost:5000/users | jq .
+
+curl -X POST -d user=tom1 -d message='Test Message' -d chatroom='Office Only' localhost:5000/message
+curl -X POST -d user=tom1 -d message='Test Message' -d chatroom='Office Only' -d from_ts='2022-03-01 00:01:00' localhost:5000/last-messages | jq .
+
+```

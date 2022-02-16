@@ -1,15 +1,11 @@
 (ns flash.handlers
-  (:gen-class)
   (:require [flash.db :as db]
             [flash.model :as model]
-            [clj-time.core :as ctc]
             [clj-time.format :as ctf]
             [clj-time.coerce :as ctcc]
             [buddy.core.codecs :as codecs]
             [buddy.core.kdf :as kdf]
             [buddy.core.nonce :as nonce]))
-
-
 
 (defn format-timestamp
   [time]
@@ -39,9 +35,8 @@
 
 
 (defn get-users
-  [request]
-  (db/sql "SELECT name FROM users"))
-
+  [_]
+  {:body (db/sql "SELECT name FROM users")})
 
 
 (defn insert-message
@@ -49,28 +44,32 @@
   (let [user-name (get (:form-params request) "user")
         message (get (:form-params request) "message")
         chatroom (get (:form-params request) "chatroom")
-        user-id (:users/id (first (db/sql (str "SELECT id from users where name='" user-name "'"))))
-        chatroom-id (:chatroom/id (first (db/sql (str "SELECT id FROM chatroom where name='" chatroom "'"))))
+        user-id (:users/id (first (db/sql "SELECT id from users where name=?" user-name)))
+        chatroom-id (:chatroom/id (first (db/sql "SELECT id FROM chatroom where name=" chatroom)))
         new-message-id (str (java.util.UUID/randomUUID))]
-    (if-not
-     (or (nil? user-id) (nil? chatroom-id))
-
-      (do (db/sql (str "INSERT INTO messages (id, contents, user_id, chat_room, created_at, updated_at) VALUES ('" new-message-id
-                       "', '" message "', '" user-id, "', '" chatroom-id, "', ", "CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)"))
-          {:body {:status "true", :message-id new-message-id}})
-      {:body {:status "false", :message (str "Either username or chatroom does not exist:" user-name ", " chatroom)}})))
+    ;; Todo: Move these to Model 
+    (if (or (nil? user-id) (nil? chatroom-id))
+      {:body {:status "false", :message (str "Either username or chatroom does not exist:" user-name ", " chatroom)}}
+      (do (db/sql (str "INSERT INTO messages (id, contents, user_id, chat_room, created_at, updated_at) "
+                       "VALUES (?, ?, ? CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
+                  new-message-id
+                  message user-id chatroom-id)
+          {:body {:status "true", :message-id new-message-id}}))))
 
 
 (defn get-messages
   [request]
   (let [user-name (get (:form-params request) "user")
         chatroom (get (:form-params request) "chatroom")
-        user-id (:users/id (first (db/sql (str "SELECT id from users where name='" user-name "'"))))
-        chatroom-id (:chatroom/id (first (db/sql (str "SELECT id FROM chatroom where name='" chatroom "'"))))
+        user-id (:users/id (first (db/sql "SELECT id from users where name=?" user-name)))
+        chatroom-id (:chatroom/id (first (db/sql "SELECT id FROM chatroom where name=?" chatroom)))
         from_ts (format-timestamp (get (:form-params request) "from_ts"))]
     (if (and user-id chatroom-id chatroom-id from_ts)
       {:body (db/sql
-              (str "WITH t AS (SELECT m.id as message_id, m.contents, c.name as chatroom, u.name as username, m.created_at  from (messages m JOIN users u ON m.user_id=u.id) JOIN chatroom c ON c.id=m.chat_room WHERE m.chat_room='" chatroom-id "' AND m.created_at < to_timestamp('" from_ts "') ORDER BY m.created_at DESC LIMIT 50) SELECT * FROM t ORDER BY created_at ASC"))}
+              (str "WITH t AS (SELECT m.id as message_id, m.contents, c.name as chatroom, u.name as username, m.created_at "
+                   "from (messages m JOIN users u ON m.user_id=u.id) JOIN chatroom c ON c.id=m.chat_room WHERE m.chat_room=? "
+                   "AND m.created_at < to_timestamp(?) ORDER BY m.created_at DESC LIMIT 50) SELECT * FROM t ORDER BY created_at ASC ")
+              chatroom-id from_ts)}
       {:body {:status false, :message (str "Either username, chatroom or timestamp is invalid" user-name ", " chatroom ", " from_ts)}})))
 
 
@@ -86,8 +85,7 @@
                   :user-id user-id}}
           {:status 400
            :body {:status "false"
-                  :message "Failed to enter the new user. Try with a different username"}})
-        )
+                  :message "Failed to enter the new user. Try with a different username"}}))
       (let [message (if (<= (count password) 6)
                       "Password should have at least seven characters"
                       (str "Either username or password invalid:" username ", " password))]

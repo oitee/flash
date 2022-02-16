@@ -10,10 +10,7 @@
     (alter-var-root #'db (fn [x] ds))
     db))
 
-
 (defn sql
   [& query]
-  ;;(println query)
-  (jdbc/execute! db query)
-  )
+  (jdbc/execute! db query))
 
