@@ -1,11 +1,15 @@
 (ns flash.handlers
-  (:require [flash.db :as db]
-            [flash.model :as model]
-            [clj-time.format :as ctf]
-            [clj-time.coerce :as ctcc]
-            [buddy.core.codecs :as codecs]
-            [buddy.core.kdf :as kdf]
-            [buddy.core.nonce :as nonce]))
+  "hello@otee.dev"
+  (:require
+   [buddy.core.codecs :as codecs]
+   [buddy.core.kdf :as kdf]
+   [buddy.core.nonce :as nonce]
+   [clj-time.coerce :as ctcc]
+   [clj-time.format :as ctf]
+   [flash.db :as db]
+   [flash.model :as model])
+  (:import
+   (java.util UUID)))
 
 (defn format-timestamp
   [time]
@@ -41,21 +45,69 @@
 
 
 (defn insert-message
-  [request]
-  (let [user-name (get (:form-params request) "user")
-        message (get (:form-params request) "message")
-        chatroom (get (:form-params request) "chatroom")
-        user-id (:users/id (first (db/sql "SELECT id from users where name=?" user-name)))
-        chatroom-id (:chatroom/id (first (db/sql "SELECT id FROM chatroom where name=" chatroom)))
-        new-message-id (str (java.util.UUID/randomUUID))]
-    ;; Todo: Move these to Model 
-    (if (or (nil? user-id) (nil? chatroom-id))
-      {:body {:status "false", :message (str "Either username or chatroom does not exist:" user-name ", " chatroom)}}
-      (do (db/sql (str "INSERT INTO messages (id, contents, user_id, chat_room, created_at, updated_at) "
-                       "VALUES (?, ?, ? CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
-                  new-message-id
-                  message user-id chatroom-id)
-          {:body {:status "true", :message-id new-message-id}}))))
+  "Given a new `message-txt` and the `chatroom-id` where it was written,
+store it permanently."
+  [message-txt chatroom-id user-id]
+  (let [new-message-id (UUID/randomUUID)]
+    (db/sql (str "INSERT INTO messages (id, contents, user_id, chat_room, created_at, updated_at) "
+                 "VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
+            new-message-id
+            message-txt
+            user-id
+            chatroom-id)
+    {:body {:status :success, :message-id new-message-id}}))
+
+(defn verify-room-details
+  "Given a `chatroom` string and a `user` string, check if such entities
+  actually exist. Return them if they do, throw an error otherwise."
+  [chatroom user]
+  (let [user-id (try (->> user
+                         (db/sql "SELECT id from users where name=?")
+                         first
+                         :users/id)
+                     (catch org.postgresql.util.PSQLException _))
+        chatroom-id (try (->> chatroom
+                             (db/sql "SELECT id FROM chatroom where name=")
+                             first
+                             :chatroom/id)
+                         (catch org.postgresql.util.PSQLException _))]
+    (cond
+      (nil? user-id)
+      {:status :error
+       :error :bad-user
+       :message (str "User does not exist: " user)}
+
+      (nil? chatroom-id)
+      {:status :error
+       :error :bad-chatroom-id
+       :message (str "Chatroom does not exist: " chatroom)}
+
+      :else
+      {:chatroom-id chatroom-id
+       :user-id user-id})))
+
+(defn insert-message-handler
+  "Takes a `request`, extracts all the params needed to insert a new
+message into the provided chatroom."
+  [{:keys [form-params]}]
+  (let [user-name (get form-params "user")
+        message-txt (get form-params "message")
+        chatroom (get form-params "chatroom")]
+    (cond
+      (nil? user-name)
+      {:body {:status :error
+              :error :bad-user
+              :message (str "Username not provided:" user-name)}}
+      (nil? chatroom)
+      {:body {:status :error
+              :error :bad-chatroom-id
+              :message (str "Chatroom not provided:" chatroom)}}
+      :else
+      (let [{:keys [chatroom-id user-id error] :as ret}
+            (verify-room-details chatroom user-name)]
+        (if error
+          (throw (ex-info "Hey, your input is bad" ret))
+          (insert-message message-txt chatroom-id user-id))))))
 
 
 (defn get-messages
@@ -101,8 +153,3 @@
 
 (format-timestamp "2022-03-09 09:00:11")
 (nil? (format-timestamp "2022-03-09 25:00:11"))
-
-
-
-
-
