@@ -46,15 +46,21 @@
         message (get (:form-params request) "message")
         chatroom (get (:form-params request) "chatroom")
         user-id (:users/id (first (db/sql "SELECT id from users where name=?" user-name)))
-        chatroom-id (:chatroom/id (first (db/sql "SELECT id FROM chatroom where name=" chatroom)))
-        new-message-id (str (java.util.UUID/randomUUID))]
+        chatroom-id (:chatroom/id (first (db/sql "SELECT id FROM chatroom where name=?" chatroom)))
+        new-message-id (java.util.UUID/randomUUID)]
     ;; Todo: Move these to Model 
     (if (or (nil? user-id) (nil? chatroom-id))
-      {:body {:status "false", :message (str "Either username or chatroom does not exist:" user-name ", " chatroom)}}
+      {:body {:status "false", 
+              :message (str "Either username or chatroom does not exist:" 
+                            user-name 
+                            ", " 
+                            chatroom)}}
       (do (db/sql (str "INSERT INTO messages (id, contents, user_id, chat_room, created_at, updated_at) "
-                       "VALUES (?, ?, ? CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
+                       "VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
                   new-message-id
-                  message user-id chatroom-id)
+                  message 
+                  user-id 
+                  chatroom-id)
           {:body {:status "true", :message-id new-message-id}}))))
 
 

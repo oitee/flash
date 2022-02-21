@@ -12,5 +12,6 @@
 
 (defn sql
   [& query]
+  (println "SQL query: " query)
   (jdbc/execute! db query))
 
