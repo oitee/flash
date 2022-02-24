@@ -1,23 +1,13 @@
 (ns flash.handlers
-  "hello@otee.dev"
   (:require
    [buddy.core.codecs :as codecs]
    [buddy.core.kdf :as kdf]
    [buddy.core.nonce :as nonce]
-   [clj-time.coerce :as ctcc]
-   [clj-time.format :as ctf]
    [flash.db :as db]
-   [flash.model :as model])
-  (:import
-   (java.util UUID)))
+   [flash.model :as model]
+   [flash.utils :as utils])
+  )
 
-(defn format-timestamp
-  [time]
-  (try
-    (int (/ (ctcc/to-long (ctf/parse (ctf/formatter "YYYY-MM-dd HH:mm:ss")
-                                     time))
-            1000))
-    (catch Exception e nil)))
 
 
 (defn generate-hash
@@ -40,51 +30,11 @@
 
 
 (defn get-users
+  "Calls the appropriate model function(model/get-users) which returns a 
+   list of all the current users from the database"
   [_]
   {:body (db/sql "SELECT name FROM users")})
 
-
-(defn insert-message
-  "Given a new `message-txt` and the `chatroom-id` where it was written,
-store it permanently."
-  [message-txt chatroom-id user-id]
-  (let [new-message-id (UUID/randomUUID)]
-    (db/sql (str "INSERT INTO messages (id, contents, user_id, chat_room, created_at, updated_at) "
-                 "VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)")
-            new-message-id
-            message-txt
-            user-id
-            chatroom-id)
-    {:body {:status :success, :message-id new-message-id}}))
-
-(defn verify-room-details
-  "Given a `chatroom` string and a `user` string, check if such entities
-  actually exist. Return them if they do, throw an error otherwise."
-  [chatroom user]
-  (let [user-id (try (->> user
-                         (db/sql "SELECT id from users where name=?")
-                         first
-                         :users/id)
-                     (catch org.postgresql.util.PSQLException _))
-        chatroom-id (try (->> chatroom
-                             (db/sql "SELECT id FROM chatroom where name=")
-                             first
-                             :chatroom/id)
-                         (catch org.postgresql.util.PSQLException _))]
-    (cond
-      (nil? user-id)
-      {:status :error
-       :error :bad-user
-       :message (str "User does not exist: " user)}
-
-      (nil? chatroom-id)
-      {:status :error
-       :error :bad-chatroom-id
-       :message (str "Chatroom does not exist: " chatroom)}
-
-      :else
-      {:chatroom-id chatroom-id
-       :user-id user-id})))
 
 (defn insert-message-handler
   "Takes a `request`, extracts all the params needed to insert a new
@@ -104,10 +54,10 @@ message into the provided chatroom."
               :message (str "Chatroom not provided:" chatroom)}}
       :else
       (let [{:keys [chatroom-id user-id error] :as ret}
-            (verify-room-details chatroom user-name)]
+            (model/verify-room-details chatroom user-name)]
         (if error
           (throw (ex-info "Hey, your input is bad" ret))
-          (insert-message message-txt chatroom-id user-id))))))
+          (model/insert-message message-txt chatroom-id user-id))))))
 
 
 (defn get-messages
@@ -116,7 +66,7 @@ message into the provided chatroom."
         chatroom (get (:form-params request) "chatroom")
         user-id (:users/id (first (db/sql "SELECT id from users where name=?" user-name)))
         chatroom-id (:chatroom/id (first (db/sql "SELECT id FROM chatroom where name=?" chatroom)))
-        from_ts (format-timestamp (get (:form-params request) "from_ts"))]
+        from_ts (utils/format-timestamp (get (:form-params request) "from_ts"))]
     (clojure.pprint/pprint (str (str "SELECT m.id as message_id, m.contents, c.name as chatroom, u.name as username, m.created_at "
                                      "from (messages m JOIN users u ON m.user_id=u.id) JOIN chatroom c ON c.id=m.chat_room WHERE m.chat_room=? "
                                      "AND m.created_at > to_timestamp(?) ORDER BY m.created_at ASC LIMIT 50 ") chatroom-id "  " from_ts))
@@ -151,5 +101,4 @@ message into the provided chatroom."
 
 
 
-(format-timestamp "2022-03-09 09:00:11")
-(nil? (format-timestamp "2022-03-09 25:00:11"))
+
